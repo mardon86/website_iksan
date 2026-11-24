@@ -18,6 +18,8 @@ module.exports = function (eleventyConfig) {
   
   eleventyConfig.setWatchThrottleWaitTime(200);
 
+  eleventyConfig.setUseGitIgnore(false);
+
   return {
     dir: {
       input: "src",
