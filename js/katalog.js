@@ -81,7 +81,14 @@ function resetDanRender() {
   renderBatch();
 }
 
+
 // ===== FILTER =====
+function punyaKategori(p, kat) {
+  if (!p.kategori) return false;
+  if (Array.isArray(p.kategori)) return p.kategori.includes(kat);
+  return p.kategori === kat; // fallback kalau masih string
+}
+
 
 function isiFilterKategori() {
   const sel = document.getElementById("filter-kategori");
@@ -106,7 +113,7 @@ function terapkanFilter() {
   const cari = document.getElementById("filter-cari")?.value.toLowerCase() || "";
 
   hasilFilter = semuaProduk.filter((p) => {
-    if (kategori && p.kategori !== kategori) return false;
+    if (kategori && !punyaKategori(p, kategori) return false;
     if (merek && p.merek !== merek) return false;
     if (ukuran && p.ukuran !== ukuran) return false;
     if (cari && !p.nama.toLowerCase().includes(cari)) return false;
