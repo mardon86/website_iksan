@@ -113,7 +113,7 @@ function terapkanFilter() {
   const cari = document.getElementById("filter-cari")?.value.toLowerCase() || "";
 
   hasilFilter = semuaProduk.filter((p) => {
-    if (kategori && !punyaKategori(p, kategori) return false;
+    if (kategori && !punyaKategori(p, kategori)) return false;
     if (merek && p.merek !== merek) return false;
     if (ukuran && p.ukuran !== ukuran) return false;
     if (cari && !p.nama.toLowerCase().includes(cari)) return false;
