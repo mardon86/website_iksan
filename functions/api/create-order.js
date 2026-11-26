@@ -40,10 +40,14 @@ export async function onRequestPost({ request, env }) {
   const secretKey = env.DOKU_SECRET_KEY;
   const callbackUrl = env.DOKU_CALLBACK_URL;
 
-  if (!clientId || !secretKey || !callbackUrl) {
-    console.error("Env DOKU belum lengkap");
-    return json({ error: "Konfigurasi server belum lengkap" }, 500);
-  }
+  const missing = [];
+  if (!env.DOKU_CLIENT_ID) missing.push("DOKU_CLIENT_ID");
+  if (!env.DOKU_SECRET_KEY) missing.push("DOKU_SECRET_KEY");
+  if (!env.DOKU_CALLBACK_URL) missing.push("DOKU_CALLBACK_URL");
+    
+  if (missing.length) {
+    console.error("Env belum diset:", missing.join(", "));
+    return json({ error: `Konfigurasi server belum lengkap: ${missing.join(", ")}` }, 500);
 
   let payload;
   try {
