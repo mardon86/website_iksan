@@ -1,6 +1,3 @@
 node_modules/
-public/
-src/_css/
-src/data/
 .env
 .DS_Store
