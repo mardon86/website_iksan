@@ -13,9 +13,6 @@ async function beliOtomatis(slug, tombol) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
           'slug': slug,
-          'nama': 'Ujang',
-          'email': 'ujanggoogle@gmail.com',
-          'telepon': '081234567890'
       }),
       signal: controller.signal,
     });

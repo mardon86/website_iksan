@@ -78,7 +78,7 @@ export async function onRequestPost({ request, env }) {
       invoice_number: invoiceNumber,
       currency: "IDR",
       callback_url: callbackUrl,
-      auto_redirect: true,
+      auto_redirect: false,
     },
     payment: { payment_due_date: 60 },
     customer: {
