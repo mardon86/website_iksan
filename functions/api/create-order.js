@@ -38,7 +38,7 @@ async function cariProduk(request, slug) {
 export async function onRequestPost({ request, env }) {
   const clientId = env.DOKU_CLIENT_ID;
   const secretKey = env.DOKU_SECRET_KEY;
-  const callbackUrl = env.DOKU_CALLBACK_URL;
+  const callbackUrl = env.DOKU_CALLBACK_URL || new URL("/api/doku-notification", request.url).toString();
 
   const missing = [];
   if (!env.DOKU_CLIENT_ID) missing.push("DOKU_CLIENT_ID");
