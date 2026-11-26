@@ -45,4 +45,3 @@ async function beliOtomatis(slug, tombol) {
     tombol.disabled = false;
   }
 }
-}
