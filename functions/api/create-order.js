@@ -158,14 +158,14 @@ export async function onRequestPost({ request, env }) {
     return json({ error: "Body bukan JSON yang valid" }, 400);
   }
 
-  const slug = typeof payload?.slug === "string" ? payload.slug.trim() : "";
-  if (!slug) return json({ error: "slug produk wajib diisi" }, 400);
+  const id = typeof payload?.id === "string" ? payload.id.trim() : "";
+  if (!id) return json({ error: "id produk wajib diisi" }, 400);
 
-  const hasil = await ambilProduk(request, env, slug);
+  const hasil = await ambilProduk(request, env, id);
   if (hasil.error) return json({ error: hasil.error }, hasil.status);
 
   const { produk } = hasil;
-  console.log("Produk            :", produk.slug, "| harga:", produk.harga);
+  console.log("Produk            :", produk.id, "| harga:", produk.harga);
 
   const invoiceNumber = `INV-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
 
