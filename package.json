@@ -5,7 +5,8 @@
   "scripts": {
     "build:data": "node scripts/build-katalog.js",
     "dev:css": "tailwindcss -i ./src/css/tailwind.css -o ./src/_css/style.css --watch",
-    "dev:site": "eleventy --serve --port=8080",
+    "dev:site": "eleventy",
+    "dev:livereload": "eleventy --serve --port=8080",
     "dev": "npm run build:data && npm-run-all --parallel dev:css dev:site",
     "build:css": "tailwindcss -i ./src/css/tailwind.css -o ./src/_css/style.css --minify",
     "build:site": "eleventy",
