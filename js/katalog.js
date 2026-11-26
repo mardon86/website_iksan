@@ -123,6 +123,7 @@ function terapkanFilter() {
   resetDanRender();
 }
 
+
 // ===== INIT =====
 async function initKatalog() {
   const grid = document.getElementById("grid-produk");
