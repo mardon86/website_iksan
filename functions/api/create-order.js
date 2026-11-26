@@ -48,6 +48,7 @@ export async function onRequestPost({ request, env }) {
   if (missing.length) {
     console.error("Env belum diset:", missing.join(", "));
     return json({ error: `Konfigurasi server belum lengkap: ${missing.join(", ")}` }, 500);
+  }
 
   let payload;
   try {
