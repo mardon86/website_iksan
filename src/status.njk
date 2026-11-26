@@ -1,0 +1,254 @@
+---
+layout: base.njk
+permalink: /status/index.html
+title: Status Pesanan
+---
+<div class="max-w-xl mx-auto px-4 py-16">
+
+  <div class="text-center mb-8">
+    <div id="status-ikon" class="text-5xl mb-4" aria-hidden="true">⏳</div>
+    <h1 id="status-judul" class="text-2xl font-bold mb-2">Memeriksa status…</h1>
+    <p id="status-pesan" class="text-gray-600">Mohon tunggu sebentar.</p>
+  </div>
+
+  <div id="status-detail" class="hidden rounded-lg border border-gray-200 bg-gray-50 p-5 space-y-2 text-sm">
+    <div class="flex justify-between gap-4">
+      <span class="text-gray-500">Invoice</span>
+      <span id="d-invoice" class="font-mono text-xs break-all text-right"></span>
+    </div>
+    <div class="flex justify-between gap-4">
+      <span class="text-gray-500">Produk</span>
+      <span id="d-produk" class="font-medium text-right"></span>
+    </div>
+    <div class="flex justify-between gap-4">
+      <span class="text-gray-500">Jumlah</span>
+      <span id="d-jumlah" class="font-semibold text-right"></span>
+    </div>
+    <div id="d-waktu-baris" class="flex justify-between gap-4 hidden">
+      <span class="text-gray-500">Dibayar pada</span>
+      <span id="d-waktu" class="text-right"></span>
+    </div>
+  </div>
+
+  <div id="status-aksi" class="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
+    <button
+      id="tombol-cek-ulang"
+      type="button"
+      class="px-5 py-2.5 rounded-lg border border-gray-300 font-medium hover:bg-gray-50"
+    >
+      Cek ulang status
+    </button>
+    <a
+      href="/katalog/"
+      class="px-5 py-2.5 rounded-lg bg-gray-900 text-white font-medium text-center hover:bg-gray-800"
+    >
+      Kembali ke katalog
+    </a>
+  </div>
+
+  <p id="status-catatan" class="mt-6 text-center text-xs text-gray-400"></p>
+</div>
+
+<script>
+  (function () {
+    var POLA_INVOICE = /^INV-\d{10,16}-[A-Za-z0-9]{8}$/;
+    var INTERVAL_MS = 5000;
+    var MAKS_PERCOBAAN = 24; // sekitar 2 menit
+
+    var elIkon = document.getElementById("status-ikon");
+    var elJudul = document.getElementById("status-judul");
+    var elPesan = document.getElementById("status-pesan");
+    var elDetail = document.getElementById("status-detail");
+    var elCatatan = document.getElementById("status-catatan");
+
+    var percobaan = 0;
+    var timer = null;
+    var invoiceAktif = null;
+
+    function rupiah(n) {
+      var angka = Number(n);
+      if (!isFinite(angka)) return "-";
+      return "Rp " + angka.toLocaleString("id-ID");
+    }
+
+    function tanggal(iso) {
+      if (!iso) return "-";
+      var d = new Date(iso);
+      if (isNaN(d.getTime())) return "-";
+      return d.toLocaleString("id-ID", {
+        dateStyle: "long",
+        timeStyle: "short",
+      });
+    }
+
+    function tampilkan(ikon, judul, pesan) {
+      elIkon.textContent = ikon;
+      elJudul.textContent = judul;
+      elPesan.textContent = pesan;
+    }
+
+    function isiDetail(d) {
+      document.getElementById("d-invoice").textContent = d.invoice || "-";
+      document.getElementById("d-produk").textContent = d.nama || d.id || "-";
+      document.getElementById("d-jumlah").textContent = rupiah(d.amount);
+
+      var barisWaktu = document.getElementById("d-waktu-baris");
+      if (d.paidAt) {
+        document.getElementById("d-waktu").textContent = tanggal(d.paidAt);
+        barisWaktu.classList.remove("hidden");
+      } else {
+        barisWaktu.classList.add("hidden");
+      }
+
+      elDetail.classList.remove("hidden");
+    }
+
+    function hentikan() {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+    }
+
+    function render(d) {
+      var status = (d.status || "").toUpperCase();
+
+      if (status === "SUCCESS") {
+        hentikan();
+        tampilkan("✅", "Pembayaran berhasil", "Terima kasih, pesanan Anda sudah kami terima.");
+        isiDetail(d);
+        elCatatan.textContent = "Simpan nomor invoice ini untuk keperluan konfirmasi.";
+        return;
+      }
+
+      if (status === "PENDING") {
+        tampilkan("⏳", "Menunggu pembayaran", "Status akan diperbarui otomatis.");
+        isiDetail(d);
+        elCatatan.textContent =
+          percobaan > 0
+            ? "Memeriksa ulang… (" + percobaan + "/" + MAKS_PERCOBAAN + ")"
+            : "";
+        return;
+      }
+
+      if (status === "FAILED" || status === "EXPIRED" || status === "CANCELLED") {
+        hentikan();
+        tampilkan("❌", "Pembayaran tidak selesai", "Silakan buat pesanan baru jika masih berminat.");
+        isiDetail(d);
+        return;
+      }
+
+      if (status === "TIDAK_DITEMUKAN") {
+        hentikan();
+        tampilkan("🔎", "Pesanan tidak ditemukan", "Nomor invoice tidak dikenali oleh sistem kami.");
+        return;
+      }
+
+      hentikan();
+      tampilkan("⚠️", "Status tidak diketahui", "Silakan hubungi kami lewat WhatsApp.");
+      isiDetail(d);
+    }
+
+    function cek() {
+      if (!invoiceAktif) {
+        tampilkan(
+          "ℹ️",
+          "Tidak ada pesanan aktif",
+          "Halaman ini menampilkan status setelah Anda menyelesaikan pembayaran."
+        );
+        elCatatan.textContent = "";
+        return;
+      }
+
+      fetch("/api/order-status?invoice=" + encodeURIComponent(invoiceAktif), {
+        cache: "no-store",
+      })
+        .then(function (res) {
+          return res.json().then(function (body) {
+            return { ok: res.ok, status: res.status, body: body };
+          });
+        })
+        .then(function (hasil) {
+          if (hasil.status === 404) {
+            render({ status: "TIDAK_DITEMUKAN", invoice: invoiceAktif });
+            return;
+          }
+          if (!hasil.ok) {
+            throw new Error("HTTP " + hasil.status);
+          }
+          render(hasil.body);
+        })
+        .catch(function (err) {
+          console.error(err);
+          hentikan();
+          tampilkan(
+            "⚠️",
+            "Gagal memeriksa status",
+            "Periksa koneksi Anda, lalu tekan Cek ulang."
+          );
+          elCatatan.textContent =
+            "Kalau pembayaran Anda sudah berhasil, jangan bayar ulang. Hubungi kami dengan nomor invoice di atas.";
+        });
+    }
+
+    function mulaiPolling() {
+      hentikan();
+      percobaan = 0;
+      timer = setInterval(function () {
+        if (document.hidden) return;
+        percobaan += 1;
+        if (percobaan > MAKS_PERCOBAAN) {
+          hentikan();
+          elCatatan.textContent =
+            "Pemeriksaan otomatis dihentikan. Tekan Cek ulang untuk mencoba lagi.";
+          return;
+        }
+        cek();
+      }, INTERVAL_MS);
+    }
+
+    function mulai() {
+      var dariUrl = new URLSearchParams(window.location.search).get("invoice");
+      var dariSession = null;
+      try {
+        dariSession = sessionStorage.getItem("invoice_terakhir");
+      } catch (e) {
+        // mode privat / storage diblokir
+      }
+
+      var kandidat = (dariUrl || dariSession || "").trim();
+
+      if (!POLA_INVOICE.test(kandidat)) {
+        tampilkan(
+          "ℹ️",
+          "Tidak ada pesanan aktif",
+          "Halaman ini menampilkan status setelah Anda menyelesaikan pembayaran."
+        );
+        elDetail.classList.add("hidden");
+        return;
+      }
+
+      invoiceAktif = kandidat;
+      document.getElementById("d-invoice").textContent = invoiceAktif;
+
+      cek();
+      mulaiPolling();
+    }
+
+    document.getElementById("tombol-cek-ulang").addEventListener("click", function () {
+      hentikan();
+      percobaan = 0;
+      elCatatan.textContent = "";
+      cek();
+      if (invoiceAktif) mulaiPolling();
+    });
+
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden && invoiceAktif && !timer) {
+        cek();
+      }
+    });
+
+    mulai();
+  })();
+</script>

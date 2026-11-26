@@ -1,4 +1,4 @@
-async function beliOtomatis(slug, tombol) {
+async function beliProduk(id, tombol) {
   if (!tombol || tombol.disabled) return;
   const teksAsli = tombol.innerHTML;
   tombol.innerHTML = "⏳ Memproses...";
@@ -12,10 +12,7 @@ async function beliOtomatis(slug, tombol) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-          'slug': slug,
-          'nama': 'Ujang',
-          'email': 'ujanggoogle@gmail.com',
-          'telepon': '081234567890'
+          'id': id,
       }),
       signal: controller.signal,
     });
@@ -28,6 +25,7 @@ async function beliOtomatis(slug, tombol) {
     }
 
     if (response.ok && data.paymentUrl) {
+      sessionStorage.setItem("invoice_terakhir", data.invoice);
       window.location.href = data.paymentUrl;
       return;
     }
