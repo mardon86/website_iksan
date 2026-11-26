@@ -103,6 +103,17 @@ function buatLabel(p) {
   return `${p.nama} — ${p.id}`;
 }
 
+// Normalisasi nomor telepon: buang semua non-digit, batasi 20 digit
+function normalisasiTelepon(nilai) {
+  const digit = String(nilai ?? "").replace(/\D/g, "");
+  return digit.length > 0 && digit.length <= 20 ? digit : null;
+}
+
+function emailValid(nilai) {
+  const s = String(nilai ?? "").trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s) && s.length <= 100 ? s : null;
+}
+
 /* ---------------- handler ---------------- */
 
 export async function onRequestPost({ request, env }) {
@@ -169,6 +180,13 @@ export async function onRequestPost({ request, env }) {
 
   const invoiceNumber = `INV-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
 
+  const namaPembeli = String(payload?.nama ?? "").trim().slice(0, 100);
+  const customer = { name: namaPembeli || "Pelanggan" };
+  const email = emailValid(payload?.email);
+  if (email) customer.email = email;
+  const telepon = normalisasiTelepon(payload?.telepon);
+  if (telepon) customer.phone = telepon;
+  
   const body = {
     order: {
       amount: produk.harga,
@@ -178,11 +196,7 @@ export async function onRequestPost({ request, env }) {
       auto_redirect: false,
     },
     payment: { payment_due_date: 60 },
-    customer: {
-      name: String(payload.nama || "Pelanggan").slice(0, 100),
-      email: String(payload.email || "").slice(0, 100),
-      phone: String(payload.telepon || "").slice(0, 20),
-    },
+    customer,
     line_items: [
       { name: produk.label, price: produk.harga, quantity: 1, category: "katalog" },
     ],
