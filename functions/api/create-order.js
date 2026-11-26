@@ -134,6 +134,7 @@ export async function onRequestPost({ request, env }) {
         error: data?.error?.message || data?.message || "Gagal membuat transaksi",
         code: data?.error?.code,
         invoice: invoiceNumber,
+        clientid: clientId
       },
       502
     );
