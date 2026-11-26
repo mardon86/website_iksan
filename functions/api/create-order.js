@@ -1,71 +1,139 @@
-// functions/api/create-order.js
-export async function onRequestPost(context) {
-  const { request, env } = context;
-  
-  // 1. Dapatkan data dari frontend (misalnya amount)
-  const { amount } = await request.json(); 
-  
-  // 2. Siapkan kredensial
+const DOKU_BASE = "https://api-sandbox.doku.com"; // production: https://api.doku.com
+const TARGET_PATH = "/checkout/v1/payment";
+
+const json = (body, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+    },
+  });
+
+const toBase64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
+
+async function sha256Base64(text) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return toBase64(buf);
+}
+
+async function hmacBase64(secret, text) {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+  );
+  return toBase64(await crypto.subtle.sign("HMAC", key, enc.encode(text)));
+}
+
+// Ambil produk dari katalog yang sudah di-copy sebagai aset statis.
+// Sesuaikan nama field dengan isi src/data/produk.json Anda.
+async function cariProduk(request, slug) {
+  const res = await fetch(new URL("/data/produk.json", request.url));
+  if (!res.ok) return null;
+  const data = await res.json();
+  const list = Array.isArray(data) ? data : Object.values(data);
+  return list.find((p) => p.slug === slug || p.id === slug) ?? null;
+}
+
+export async function onRequestPost({ request, env }) {
   const clientId = env.DOKU_CLIENT_ID;
   const secretKey = env.DOKU_SECRET_KEY;
-  const targetPath = '/checkout/v1/payment';
-  const requestId = crypto.randomUUID();
-  // Format timestamp harus ISO8601 UTC, misalnya: 2026-11-23T10:00:00Z
-  const timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+  const callbackUrl = env.DOKU_CALLBACK_URL;
 
-  // 3. Bangun body permintaan DOKU (disederhanakan)
+  if (!clientId || !secretKey || !callbackUrl) {
+    console.error("Env DOKU belum lengkap");
+    return json({ error: "Konfigurasi server belum lengkap" }, 500);
+  }
+
+  let payload;
+  try {
+    payload = await request.json();
+  } catch {
+    return json({ error: "Body bukan JSON yang valid" }, 400);
+  }
+
+  const slug = typeof payload?.slug === "string" ? payload.slug.trim() : "";
+  if (!slug) return json({ error: "slug produk wajib diisi" }, 400);
+
+  // HARGA DITENTUKAN DI SERVER, bukan dari client
+  const produk = await cariProduk(request, slug);
+  if (!produk) return json({ error: "Produk tidak ditemukan" }, 404);
+
+  const harga = Number(produk.harga);
+  if (!Number.isInteger(harga) || harga <= 0) {
+    console.error("Harga tidak valid untuk produk", slug, produk.harga);
+    return json({ error: "Harga produk tidak valid" }, 500);
+  }
+  const namaProduk = produk.nama || produk.title || slug;
+
+  const invoiceNumber = `INV-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+
   const body = {
     order: {
-      amount: amount,
-      invoice_number: `INV-${Date.now()}`,
+      amount: harga,
+      invoice_number: invoiceNumber,
       currency: "IDR",
-      callback_url: "https://domain-anda.com/callback" // Halaman yang dituju setelah pembayaran selesai
+      callback_url: callbackUrl,
+      auto_redirect: true,
     },
-    payment: { payment_due_date: 60 }
+    payment: { payment_due_date: 60 },
+    customer: {
+      name: String(payload.nama || "Pelanggan").slice(0, 100),
+      email: String(payload.email || "").slice(0, 100),
+      phone: String(payload.telepon || "").slice(0, 20),
+    },
+    line_items: [{ name: namaProduk, price: harga, quantity: 1, category: "katalog" }],
   };
+
   const bodyString = JSON.stringify(body);
+  const requestId = crypto.randomUUID();
+  const timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+  const digest = await sha256Base64(bodyString);
 
-  // 4. Hitung Digest (SHA-256 -> Base64)
-  const encoder = new TextEncoder();
-  const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(bodyString));
-  const digest = btoa(String.fromCharCode(...new Uint8Array(hashBuffer)));
+  const component = [
+    `Client-Id:${clientId}`,
+    `Request-Id:${requestId}`,
+    `Request-Timestamp:${timestamp}`,
+    `Request-Target:${TARGET_PATH}`,
+    `Digest:${digest}`,
+  ].join("\n");
 
-  // 5. Bangun string komponen Signature
-  // Perhatikan: setiap baris dipisahkan dengan \n, dan tidak ada baris kosong tambahan di akhir
-  const component = `Client-Id:${clientId}\nRequest-Id:${requestId}\nRequest-Timestamp:${timestamp}\nRequest-Target:${targetPath}\nDigest:${digest}`;
+  const signature = `HMACSHA256=${await hmacBase64(secretKey, component)}`;
 
-  // 6. Hitung Signature dengan HMAC-SHA256
-  const key = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(secretKey),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-  const signatureBuffer = await crypto.subtle.sign('HMAC', key, encoder.encode(component));
-  const signature = `HMACSHA256=${btoa(String.fromCharCode(...new Uint8Array(signatureBuffer)))}`;
+  let dokuRes;
+  let data;
+  try {
+    dokuRes = await fetch(DOKU_BASE + TARGET_PATH, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Client-Id": clientId,
+        "Request-Id": requestId,
+        "Request-Timestamp": timestamp,
+        "Request-Target": TARGET_PATH,
+        Digest: digest,
+        Signature: signature,
+      },
+      body: bodyString,
+    });
+    data = await dokuRes.json();
+  } catch (e) {
+    console.error("Gagal menghubungi DOKU", e);
+    return json({ error: "Gagal menghubungi penyedia pembayaran" }, 502);
+  }
 
-  // 7. Kirim permintaan ke DOKU
-  const dokuResponse = await fetch('https://api-sandbox.doku.com/checkout/v1/payment', { // Production ganti dengan https://api.doku.com
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Client-Id': clientId,
-      'Request-Id': requestId,
-      'Request-Timestamp': timestamp,
-      'Request-Target': targetPath,
-      'Digest': digest,
-      'Signature': signature,
-    },
-    body: bodyString,
-  });
+  const paymentUrl = data?.response?.payment?.url;
+  if (!dokuRes.ok || !paymentUrl) {
+    console.error("DOKU menolak", dokuRes.status, JSON.stringify(data));
+    return json(
+      {
+        error: data?.error?.message || data?.message || "Gagal membuat transaksi",
+        code: data?.error?.code,
+        invoice: invoiceNumber,
+      },
+      502
+    );
+  }
 
-  const data = await dokuResponse.json();
-  
-  // 8. Kembalikan URL pembayaran ke frontend
-  return new Response(JSON.stringify({ 
-    paymentUrl: data.response?.payment?.url 
-  }), {
-    headers: { 'Content-Type': 'application/json' },
-  });
+  return json({ paymentUrl, invoice: invoiceNumber });
 }

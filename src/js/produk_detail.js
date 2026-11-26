@@ -1,36 +1,48 @@
-// ===== FUNGSI BELI OTOMATIS =====
-async function beliOtomatis(namaProduk, harga) {
-  // Ganti teks tombol jadi loading
-  const tombol = event.target;
+async function beliOtomatis(slug, tombol) {
+  if (!tombol || tombol.disabled) return;
   const teksAsli = tombol.innerHTML;
   tombol.innerHTML = "⏳ Memproses...";
   tombol.disabled = true;
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+
   try {
-    // Panggil API Cloudflare Pages Function kita
-    const response = await fetch('/api/create-order', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        namaProduk: namaProduk, 
-        amount: harga 
-      })
+    const response = await fetch("/api/create-order", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug }),
+      signal: controller.signal,
     });
 
-    const data = await response.json();
-
-    if (data.paymentUrl) {
-      // Arahkan pembeli ke halaman pembayaran DOKU
-      window.location.href = data.paymentUrl;
-    } else {
-      alert("Gagal mendapatkan link pembayaran. Silakan coba lagi atau gunakan WhatsApp.");
-      tombol.innerHTML = teksAsli;
-      tombol.disabled = false;
+    let data = {};
+    try {
+      data = await response.json();
+    } catch {
+      // respons bukan JSON (misal 500 HTML dari Cloudflare)
     }
-  } catch (error) {
-    console.error(error);
-    alert("Terjadi kesalahan sistem.");
+
+    if (response.ok && data.paymentUrl) {
+      window.location.href = data.paymentUrl;
+      return;
+    }
+
+    console.error("Gagal buat order:", response.status, data);
+    alert(
+      data.error ||
+        "Gagal mendapatkan link pembayaran. Silakan coba lagi atau gunakan WhatsApp."
+    );
+  } catch (err) {
+    if (err.name === "AbortError") {
+      alert("Koneksi terlalu lama. Silakan coba lagi.");
+    } else {
+      console.error(err);
+      alert("Terjadi kesalahan sistem.");
+    }
+  } finally {
+    clearTimeout(timer);
     tombol.innerHTML = teksAsli;
     tombol.disabled = false;
   }
+}
 }

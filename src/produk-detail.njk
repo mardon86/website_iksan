@@ -50,7 +50,7 @@ eleventyComputed:
           💬 Tanya via WhatsApp
         </a>
         {% if item.stok %}
-        <button onclick="beliOtomatis('{{ item.nama }}', {{ item.harga }})" class="inline-block bg-brand text-white font-semibold px-7 py-3 rounded-lg hover:bg-brand-dark transition-colors block text-center mt-5">
+        <button onclick="beliOtomatis('{{ item.id }}', this)" class="inline-block bg-brand text-white font-semibold px-7 py-3 rounded-lg hover:bg-brand-dark transition-colors block text-center mt-5">
               🛒 Beli Produk
             </button>
         {% endif %}
