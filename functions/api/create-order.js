@@ -36,19 +36,18 @@ async function cariProduk(request, slug) {
 }
 
 export async function onRequestPost({ request, env }) {
-  const clientId = env.DOKU_CLIENT_ID;
-  const secretKey = env.DOKU_SECRET_KEY;
-  const callbackUrl = env.DOKU_CALLBACK_URL || new URL("/api/doku-notification", request.url).toString();
-
   const missing = [];
   if (!env.DOKU_CLIENT_ID) missing.push("DOKU_CLIENT_ID");
   if (!env.DOKU_SECRET_KEY) missing.push("DOKU_SECRET_KEY");
-  if (!env.DOKU_CALLBACK_URL) missing.push("DOKU_CALLBACK_URL");
     
   if (missing.length) {
     console.error("Env belum diset:", missing.join(", "));
     return json({ error: `Konfigurasi server belum lengkap: ${missing.join(", ")}` }, 500);
   }
+  
+  const clientId = env.DOKU_CLIENT_ID;
+  const secretKey = env.DOKU_SECRET_KEY;
+  const callbackUrl = env.DOKU_CALLBACK_URL || new URL("/api/doku-notification", request.url).toString();
 
   let payload;
   try {
