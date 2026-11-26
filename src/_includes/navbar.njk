@@ -1,0 +1,23 @@
+<header class="bg-ink text-white sticky top-0 z-50 shadow-lg">
+  <div class="max-w-7xl mx-auto px-5 py-2 flex justify-between items-center flex-col sm:flex-row gap-3 sm:gap-0">
+    <div class="px-5 py-2 flex items-center flex-row gap-3" >
+       <a href="/"><img class="-my-5" src="/img/garasicepek_48x48.png"></img></a>
+       <a href="/" class="text-xl font-bold">Garasi<span class="text-brand">Cepek</span></a>
+    </div>
+    <nav class="flex gap-6 text-sm">
+      {% set navItems = [
+        { href: "/", label: "Home" },
+        { href: "/katalog/", label: "Katalog" },
+        { href: "/tentang/", label: "Tentang" },
+        { href: "/kontak/", label: "Kontak" }
+      ] %}
+      {% for item in navItems %}
+        {% if page.url == item.href %}
+          <a href="{{ item.href }}" class="text-brand font-semibold">{{ item.label }}</a>
+        {% else %}
+          <a href="{{ item.href }}" class="text-gray-300 hover:text-brand transition-colors">{{ item.label }}</a>
+        {% endif %}
+      {% endfor %}
+    </nav>
+  </div>
+</header>

@@ -1,0 +1,14 @@
+{
+  "id": "velg-hsr-17",
+  "nama": "Velg Racing HSR 17 inch",
+  "kategori": "velg",
+  "merek": "HSR",
+  "ukuran": "17",
+  "pcd": "5x114.3",
+  "offset": "et40",
+  "harga": 3200000,
+  "stok": true,
+  "gambar": "velg-hsr-17.jpg",
+  "deskripsi": "Velg racing ring 17 desain sporty. Cocok untuk sedan dan SUV.",
+  "tags": ["racing", "sporty"]
+}
